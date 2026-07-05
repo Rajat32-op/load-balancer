@@ -13,6 +13,7 @@ int main(int argc, char* argv[])
         port = std::stoi(argv[1]);
 
     int serverFd = socket(AF_INET, SOCK_STREAM, 0);
+    
 
     if (serverFd < 0)
     {

@@ -11,6 +11,7 @@ public:
     bool start();
     int acceptClient();
     void stop();
+    int getListenFd();
 
 private:
     std::string ip_;

@@ -1,14 +1,14 @@
 #include "config/Config.hpp"
-#include "utils/Loggers.hpp"
-#include "lb/Backend.hpp"
-#include "network/Connection.hpp"
+#include "core/EventLoop.hpp"
 #include "network/TcpServer.hpp"
+#include "utils/Loggers.hpp"
+
+#include <sys/epoll.h>
 #include <unistd.h>
+#include <vector>
 
 int main()
 {
-    Logger::info("Starting Load Balancer...");
-
     Config config;
 
     if (!config.load("config.json"))
@@ -17,35 +17,51 @@ int main()
         return 1;
     }
 
-    TcpServer server(config.listenIp,config.listenPort);
-    if(!server.start()){
+    TcpServer server(config.listenIp, config.listenPort);
+
+    if (!server.start())
+    {
+        Logger::error("Failed to start server.");
         return 1;
     }
 
-   while (true)
-{
-    int clientFd = server.acceptClient();
+    EventLoop eventLoop;
 
-    if (clientFd < 0)
-        continue;
-    
-    Backend backend(
-        config.backends[0].host,
-        config.backends[0].port);
-
-    if (!backend.connectBackend())
+    if (!eventLoop.addFD(server.getListenFd(), EPOLLIN))
     {
-        ::close(clientFd);
-        continue;
+        Logger::error("Failed to register listening socket with epoll.");
+        return 1;
     }
 
-    Connection connection(
-        clientFd,
-        backend.getSocket());
+    Logger::info("Event loop started.");
 
-    connection.proxy();
-    connection.close();
-}
+    std::vector<epoll_event> events;
+
+    while (true)
+    {
+        int numEvents = eventLoop.wait(events);
+
+        if (numEvents < 0)
+        {
+            Logger::error("epoll_wait() failed.");
+            break;
+        }
+
+        for (const auto& event : events)
+        {
+            if (event.data.fd == server.getListenFd())
+            {
+                int clientFd = server.acceptClient();
+
+                if (clientFd >= 0)
+                {
+                    Logger::info("Accepted client.");
+
+                    close(clientFd);   // We'll keep it open in Phase 2.2
+                }
+            }
+        }
+    }
 
     return 0;
 }

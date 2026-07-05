@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 TcpServer::TcpServer(const std::string& ip, int port)
     : ip_(ip),
@@ -29,6 +30,8 @@ bool TcpServer::start()
         Logger::error("Failed to create socket.");
         return false;
     }
+
+    setNonBlocking(listenFd_);
 
     int opt = 1;
     setsockopt(listenFd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
@@ -93,6 +96,9 @@ int TcpServer::acceptClient()
     return clientFd;
 }
 
+int TcpServer::getListenFd(){
+    return listenFd_;
+}
 void TcpServer::stop()
 {
     if (listenFd_ != -1)
@@ -100,4 +106,16 @@ void TcpServer::stop()
         close(listenFd_);
         listenFd_ = -1;
     }
+}
+
+bool setNonBlocking(int fd){
+    int flags = fcntl(fd, F_GETFL, 0);
+
+    if (flags == -1)
+        return false;
+
+    return fcntl(
+            fd,
+            F_SETFL,
+            flags | O_NONBLOCK) != -1;
 }
