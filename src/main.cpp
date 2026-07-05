@@ -1,5 +1,9 @@
 #include "config/Config.hpp"
 #include "utils/Loggers.hpp"
+#include "lb/Backend.hpp"
+#include "network/Connection.hpp"
+#include "network/TcpServer.hpp"
+#include <unistd.h>
 
 int main()
 {
@@ -13,28 +17,35 @@ int main()
         return 1;
     }
 
-    Logger::info("Configuration loaded successfully.");
-
-    Logger::info("Listening on " +
-                 config.listenIp +
-                 ":" +
-                 std::to_string(config.listenPort));
-
-    Logger::info("Algorithm: " + config.algorithm);
-
-    for (const auto& backend : config.backends)
-    {
-        Logger::info(
-            "Backend: " +
-            backend.host +
-            ":" +
-            std::to_string(backend.port) +
-            " (weight=" +
-            std::to_string(backend.weight) +
-            ")");
+    TcpServer server(config.listenIp,config.listenPort);
+    if(!server.start()){
+        return 1;
     }
 
-    Logger::info("Initialization complete.");
+   while (true)
+{
+    int clientFd = server.acceptClient();
+
+    if (clientFd < 0)
+        continue;
+    
+    Backend backend(
+        config.backends[0].host,
+        config.backends[0].port);
+
+    if (!backend.connectBackend())
+    {
+        ::close(clientFd);
+        continue;
+    }
+
+    Connection connection(
+        clientFd,
+        backend.getSocket());
+
+    connection.proxy();
+    connection.close();
+}
 
     return 0;
 }
