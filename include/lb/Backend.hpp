@@ -8,10 +8,10 @@ public:
     Backend(const std::string& host, int port);
 
     int connectBackend();
-    void disconnect();
 
 private:
     std::string host_;
     int port_;
+    int weight_;
 
 };
