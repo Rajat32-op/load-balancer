@@ -7,10 +7,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-Backend::Backend(const std::string& host, int port)
+Backend::Backend(const std::string& host, int port,int weight)
     : host_(host),
       port_(port),
-      weight_(1),
+      weight_(weight),
       healthy_(true),
       activeConnections_(0)
 {
@@ -54,4 +54,37 @@ int Backend::connectBackend()
                  std::to_string(port_));
 
     return socketFd_;
+}
+
+bool Backend::healthy() const
+{
+    return healthy_;
+}
+
+void Backend::setHealthy(bool healthy)
+{
+    healthy_ = healthy;
+}
+
+int Backend::weight() const
+{
+    return weight_;
+}
+
+void Backend::incrementConnections()
+{
+    ++activeConnections_;
+}
+
+void Backend::decrementConnections()
+{
+    if (activeConnections_ > 0)
+    {
+        --activeConnections_;
+    }
+}
+
+int Backend::activeConnections() const
+{
+    return activeConnections_;
 }

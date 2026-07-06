@@ -2,6 +2,8 @@
 #include "utils/Loggers.hpp"
 #include "lb/Backend.hpp"
 #include "lb/RoundRobinScheduler.hpp"
+#include "lb/LeastConnectionScheduler.hpp"
+#include "lb/WeightedRRScheduler.hpp"
 #include <unistd.h>
 #include <netinet/in.h>
 
@@ -27,10 +29,20 @@ bool LoadBalancer::initialize()
 
     for(auto& backendConfig : config_.backends)
     {
-        backends_.emplace_back(backendConfig.host, backendConfig.port);
+        backends_.emplace_back(backendConfig.host, backendConfig.port,backendConfig.weight);
     }
 
-    scheduler_ =std::make_unique<RoundRobinScheduler>(backends_);
+    if(config_.algorithm == "round_robin")
+        scheduler_ = std::make_unique<RoundRobinScheduler>(backends_);
+    else if(config_.algorithm == "least_connection")
+        scheduler_ = std::make_unique<LeastConnectionScheduler>(backends_);
+    else if(config_.algorithm == "weighted_round_robin")
+        scheduler_ = std::make_unique<WeightedRoundRobinScheduler>(backends_);
+    else
+    {
+        Logger::error("Unknown scheduling algorithm: " + config_.algorithm);
+        return false;
+    }
 
     return true;
 }
@@ -91,12 +103,10 @@ void LoadBalancer::handleSocketEvent(int fd)
 
     if(n <= 0)
     {
-        Logger::info("nothing received");
         cleanupConnection(fd);
     }
     else
     {
-        printf("sending %s to %d\n", buffer, toFd);
         send(toFd,buffer,n,0);
     }
 }

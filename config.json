@@ -2,7 +2,7 @@
     "listen_ip": "0.0.0.0",
     "listen_port": 8080,
 
-    "algorithm": "round_robin",
+    "algorithm": "least_connection",
 
     "backends": [
         {
@@ -14,6 +14,11 @@
             "host": "127.0.0.1",
             "port": 9002,
             "weight": 2
+        },
+        {
+            "host": "127.0.0.1",
+            "port": 9003,
+            "weight": 3
         }
     ]
 }

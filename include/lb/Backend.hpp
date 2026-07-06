@@ -5,7 +5,7 @@
 class Backend
 {
 public:
-    Backend(const std::string& host, int port);
+    Backend(const std::string& host, int port, int weight);
 
     int connectBackend();
 
@@ -18,6 +18,8 @@ public:
     bool healthy() const;
 
     void setHealthy(bool);
+
+    int weight() const;
 
 private:
     std::string host_;

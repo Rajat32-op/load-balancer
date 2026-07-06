@@ -1,9 +1,38 @@
 #include <arpa/inet.h>
-#include <cstring>
 #include <iostream>
 #include <netinet/in.h>
+#include <string>
 #include <sys/socket.h>
+#include <thread>
 #include <unistd.h>
+
+void handleClient(int clientFd, int port)
+{
+    char buffer[4096];
+
+    while (true)
+    {
+        ssize_t n = recv(clientFd, buffer, sizeof(buffer), 0);
+
+        if (n <= 0)
+            break;
+
+        std::string response = "[Backend " +
+                               std::to_string(port) +
+                               "] ";
+
+        response.append(buffer, n);
+
+        send(clientFd,
+             response.data(),
+             response.size(),
+             0);
+    }
+
+    std::cout << "Client disconnected\n";
+
+    close(clientFd);
+}
 
 int main(int argc, char* argv[])
 {
@@ -13,7 +42,6 @@ int main(int argc, char* argv[])
         port = std::stoi(argv[1]);
 
     int serverFd = socket(AF_INET, SOCK_STREAM, 0);
-    
 
     if (serverFd < 0)
     {
@@ -58,6 +86,7 @@ int main(int argc, char* argv[])
             continue;
 
         char ip[INET_ADDRSTRLEN];
+
         inet_ntop(AF_INET,
                   &client.sin_addr,
                   ip,
@@ -69,29 +98,10 @@ int main(int argc, char* argv[])
                   << ntohs(client.sin_port)
                   << std::endl;
 
-        char buffer[4096];
-
-        while (true)
-        {
-            ssize_t n = recv(clientFd,
-                             buffer,
-                             sizeof(buffer),
-                             0);
-
-            if (n <= 0)
-                break;
-
-            std::string response = "[Backend " +std::to_string(port) +"] ";
-
-            response.append(buffer, n);
-
-            send(clientFd,response.data(),response.size(),0);
-        }
-
-        std::cout << "Client disconnected\n";
-
-        close(clientFd);
+        std::thread(handleClient, clientFd, port).detach();
     }
 
     close(serverFd);
+
+    return 0;
 }
