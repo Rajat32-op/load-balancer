@@ -5,7 +5,9 @@
 #include "config/Config.hpp"
 #include "core/EventLoop.hpp"
 #include "lb/Backend.hpp"
+#include "lb/Scheduler.hpp"
 #include<memory>
+
 
 class LoadBalancer
 {
@@ -25,7 +27,7 @@ private:
     std::unordered_map<int, std::shared_ptr<Connection>> connections_;
 
     std::vector<Backend> backends_;
-    size_t currentBackend_ = 0;
+    std::unique_ptr<Scheduler> scheduler_;
 
     void acceptNewClient();
 
@@ -33,5 +35,4 @@ private:
 
     void cleanupConnection(int fd);
 
-    Backend& selectBackend();
 };

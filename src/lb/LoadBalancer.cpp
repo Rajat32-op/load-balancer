@@ -1,6 +1,7 @@
 #include "lb/LoadBalancer.hpp"
 #include "utils/Loggers.hpp"
 #include "lb/Backend.hpp"
+#include "lb/RoundRobinScheduler.hpp"
 #include <unistd.h>
 #include <netinet/in.h>
 
@@ -29,18 +30,11 @@ bool LoadBalancer::initialize()
         backends_.emplace_back(backendConfig.host, backendConfig.port);
     }
 
+    scheduler_ =std::make_unique<RoundRobinScheduler>(backends_);
+
     return true;
 }
 
-Backend& LoadBalancer::selectBackend()
-{
-    Backend& backend = backends_[currentBackend_];
-
-    currentBackend_ =
-        (currentBackend_ + 1) % backends_.size();
-
-    return backend;
-}
 
 void LoadBalancer::acceptNewClient()
 {
@@ -51,8 +45,8 @@ void LoadBalancer::acceptNewClient()
         return;
     }
 
-    Backend& backend = selectBackend();
-    int backendFd = backend.connectBackend();
+    Backend* backend = scheduler_->selectBackend();
+    int backendFd = backend->connectBackend();
     if (backendFd == -1)
     {
         Logger::error("Failed to connect to backend server.");
