@@ -9,19 +9,18 @@
 
 Backend::Backend(const std::string& host, int port)
     : host_(host),
-      port_(port),
-      socketFd_(-1)
+      port_(port)
 {
 }
 
-bool Backend::connectBackend()
+int Backend::connectBackend()
 {
-    socketFd_ = socket(AF_INET, SOCK_STREAM, 0);
+    int socketFd_ = socket(AF_INET, SOCK_STREAM, 0);
 
     if (socketFd_ < 0)
     {
         Logger::error("Failed to create backend socket.");
-        return false;
+        return -1;
     }
 
     sockaddr_in serverAddr{};
@@ -33,7 +32,7 @@ bool Backend::connectBackend()
         Logger::error("Invalid backend IP.");
         close(socketFd_);
         socketFd_ = -1;
-        return false;
+        return -1;
     }
 
     if (::connect(socketFd_,
@@ -43,7 +42,7 @@ bool Backend::connectBackend()
         Logger::error("Failed to connect to backend.");
         close(socketFd_);
         socketFd_ = -1;
-        return false;
+        return -1;
     }
 
     Logger::info("Connected to backend " +
@@ -51,19 +50,5 @@ bool Backend::connectBackend()
                  ":" +
                  std::to_string(port_));
 
-    return true;
-}
-
-void Backend::disconnect()
-{
-    if (socketFd_ != -1)
-    {
-        close(socketFd_);
-        socketFd_ = -1;
-    }
-}
-
-int Backend::getSocket() const
-{
     return socketFd_;
 }

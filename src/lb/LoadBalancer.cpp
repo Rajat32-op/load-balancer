@@ -24,7 +24,22 @@ bool LoadBalancer::initialize()
         return false;
     }
 
+    for(auto& backendConfig : config_.backends)
+    {
+        backends_.emplace_back(backendConfig.host, backendConfig.port);
+    }
+
     return true;
+}
+
+Backend& LoadBalancer::selectBackend()
+{
+    Backend& backend = backends_[currentBackend_];
+
+    currentBackend_ =
+        (currentBackend_ + 1) % backends_.size();
+
+    return backend;
 }
 
 void LoadBalancer::acceptNewClient()
@@ -36,24 +51,22 @@ void LoadBalancer::acceptNewClient()
         return;
     }
 
-    Backend backend(
-        config_.backends[0].host,
-        config_.backends[0].port);
-
-    if (!backend.connectBackend())
+    Backend& backend = selectBackend();
+    int backendFd = backend.connectBackend();
+    if (backendFd == -1)
     {
         Logger::error("Failed to connect to backend server.");
         close(clientFd);
         return;
     }
 
-    auto connection = std::make_shared<Connection>(clientFd, backend.getSocket());
+    auto connection = std::make_shared<Connection>(clientFd, backendFd);
     connections_[clientFd] = connection;
-    connections_[backend.getSocket()] = connection;
+    connections_[backendFd] = connection;
 
     // Register both client and backend FDs with the event loop.
     eventLoop_.addFD(clientFd, EPOLLIN);
-    eventLoop_.addFD(backend.getSocket(), EPOLLIN);
+    eventLoop_.addFD(backendFd, EPOLLIN);
 }
 
 void LoadBalancer::handleSocketEvent(int fd)

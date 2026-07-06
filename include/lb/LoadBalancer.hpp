@@ -4,6 +4,7 @@
 #include "network/Connection.hpp"
 #include "config/Config.hpp"
 #include "core/EventLoop.hpp"
+#include "lb/Backend.hpp"
 #include<memory>
 
 class LoadBalancer
@@ -23,9 +24,14 @@ private:
 
     std::unordered_map<int, std::shared_ptr<Connection>> connections_;
 
+    std::vector<Backend> backends_;
+    size_t currentBackend_ = 0;
+
     void acceptNewClient();
 
     void handleSocketEvent(int fd);
 
     void cleanupConnection(int fd);
+
+    Backend& selectBackend();
 };
