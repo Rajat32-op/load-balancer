@@ -47,6 +47,7 @@ void LoadBalancer::acceptNewClient()
 
     Backend* backend = scheduler_->selectBackend();
     int backendFd = backend->connectBackend();
+
     if (backendFd == -1)
     {
         Logger::error("Failed to connect to backend server.");
@@ -54,9 +55,11 @@ void LoadBalancer::acceptNewClient()
         return;
     }
 
+    backend->incrementConnections();
     auto connection = std::make_shared<Connection>(clientFd, backendFd);
     connections_[clientFd] = connection;
     connections_[backendFd] = connection;
+    connections_[clientFd]->setBackend(backend);
 
     // Register both client and backend FDs with the event loop.
     eventLoop_.addFD(clientFd, EPOLLIN);
@@ -106,7 +109,8 @@ void LoadBalancer::cleanupConnection(int fd)
         auto connection = it->second;
         int clientFd = connection->getClientFd();
         int backendFd = connection->getBackendFd();
-
+        connection->getBackend()->decrementConnections();
+        
         eventLoop_.removeFD(clientFd);
         eventLoop_.removeFD(backendFd);
 

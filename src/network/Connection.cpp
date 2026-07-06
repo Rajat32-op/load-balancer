@@ -7,7 +7,8 @@
 
 Connection::Connection(int clientFd, int backendFd)
     : clientFd_(clientFd),
-      backendFd_(backendFd)
+      backendFd_(backendFd),
+      backend_(nullptr)
 {
 }
 
@@ -32,4 +33,12 @@ void Connection::close()
         ::close(backendFd_);
         backendFd_ = -1;
     }
+}
+
+Backend *Connection::getBackend(){
+    return backend_;
+}
+
+void Connection::setBackend(Backend *backend){
+    backend_ = backend;
 }

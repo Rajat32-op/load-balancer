@@ -9,9 +9,20 @@ public:
 
     int connectBackend();
 
+    void incrementConnections();
+
+    void decrementConnections();
+
+    int activeConnections() const;
+
+    bool healthy() const;
+
+    void setHealthy(bool);
+
 private:
     std::string host_;
     int port_;
     int weight_;
-
+    bool healthy_;
+    int activeConnections_;
 };

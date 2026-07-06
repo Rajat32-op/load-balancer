@@ -9,7 +9,10 @@
 
 Backend::Backend(const std::string& host, int port)
     : host_(host),
-      port_(port)
+      port_(port),
+      weight_(1),
+      healthy_(true),
+      activeConnections_(0)
 {
 }
 
