@@ -1,11 +1,11 @@
 #pragma once
 
-class Connection
-{
+class Connection{
 public:
     Connection(int clientFd, int backendFd);
 
-    void proxy();
+    int getClientFd();
+    int getBackendFd();
     void close();
 
 private:

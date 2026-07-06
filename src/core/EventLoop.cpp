@@ -1,4 +1,5 @@
 #include "core/EventLoop.hpp"
+#include "utils/Loggers.hpp"
 #include <fcntl.h>
 #include<unistd.h>
 #include<stdexcept>
@@ -56,4 +57,23 @@ int EventLoop::wait(
         events.resize(n);
 
     return n;
+}
+
+void EventLoop::run(){
+    std::vector<epoll_event> events;
+    while (true){
+        int numEvents = wait(events);
+
+        if (numEvents < 0)
+        {
+            Logger::error("epoll_wait() failed.");
+            break;
+        }
+
+        for (const auto& event : events)
+        {
+            callbacks_[event.data.fd](event.data.fd);
+           
+        }
+    }
 }

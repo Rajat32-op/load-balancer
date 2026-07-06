@@ -9,6 +9,18 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+bool setNonBlocking(int fd){
+    int flags = fcntl(fd, F_GETFL, 0);
+
+    if (flags == -1)
+        return false;
+
+    return fcntl(
+            fd,
+            F_SETFL,
+            flags | O_NONBLOCK) != -1;
+}
+
 TcpServer::TcpServer(const std::string& ip, int port)
     : ip_(ip),
       port_(port),
@@ -106,16 +118,4 @@ void TcpServer::stop()
         close(listenFd_);
         listenFd_ = -1;
     }
-}
-
-bool setNonBlocking(int fd){
-    int flags = fcntl(fd, F_GETFL, 0);
-
-    if (flags == -1)
-        return false;
-
-    return fcntl(
-            fd,
-            F_SETFL,
-            flags | O_NONBLOCK) != -1;
 }

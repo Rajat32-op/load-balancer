@@ -1,11 +1,14 @@
 #include "config/Config.hpp"
 #include "core/EventLoop.hpp"
 #include "network/TcpServer.hpp"
+#include "network/Connection.hpp"
+#include "lb/Backend.hpp"
 #include "utils/Loggers.hpp"
 
 #include <sys/epoll.h>
 #include <unistd.h>
 #include <vector>
+#include <netinet/in.h>
 
 int main()
 {
@@ -27,41 +30,85 @@ int main()
 
     EventLoop eventLoop;
 
-    if (!eventLoop.addFD(server.getListenFd(), EPOLLIN))
-    {
+    std::unordered_map<int, Connection*> connections;
+    std::vector<epoll_event> events;
+
+    if (!eventLoop.addFD(server.getListenFd(), EPOLLIN)){
         Logger::error("Failed to register listening socket with epoll.");
         return 1;
     }
 
     Logger::info("Event loop started.");
 
-    std::vector<epoll_event> events;
 
+    int listenFd=server.getListenFd();
     while (true)
+{
+    eventLoop.wait(events);
+
+    for (auto &event : events)
     {
-        int numEvents = eventLoop.wait(events);
+        int fd = event.data.fd;
 
-        if (numEvents < 0)
+        if (fd == listenFd)
         {
-            Logger::error("epoll_wait() failed.");
-            break;
+            int clientFd = server.acceptClient();
+            Backend backend(
+            config.backends[0].host,
+            config.backends[0].port);
+
+            backend.connectBackend();
+
+            Connection* conn =
+                new Connection(
+                    clientFd,
+                    backend.getSocket());
+
+            connections[clientFd] = conn;
+            connections[backend.getSocket()] = conn;
+
+            eventLoop.addFD(clientFd, EPOLLIN);
+            eventLoop.addFD(backend.getSocket(), EPOLLIN);
+            
         }
-
-        for (const auto& event : events)
+        else
         {
-            if (event.data.fd == server.getListenFd())
+            char buffer[4096];
+            int fd=event.data.fd;
+            Connection *conn=connections[fd];
+            int fromFd,toFd;
+            if (fd == conn->getClientFd())
             {
-                int clientFd = server.acceptClient();
-
-                if (clientFd >= 0)
-                {
-                    Logger::info("Accepted client.");
-
-                    close(clientFd);   // We'll keep it open in Phase 2.2
-                }
+                fromFd = conn->getClientFd();
+                toFd = conn->getBackendFd();
             }
+            else
+            {
+                fromFd = conn->getBackendFd();
+                toFd = conn->getClientFd();
+            }
+            ssize_t n = recv(
+                fromFd,
+                buffer,
+                sizeof(buffer),
+                0);
+
+            if(n <= 0)
+            {
+                eventLoop.removeFD(fromFd);
+                close(fromFd);
+            }
+            else
+            {
+                send(toFd,
+                    buffer,
+                    n,
+                    0);
+            }
+            
         }
     }
+}
 
     return 0;
 }

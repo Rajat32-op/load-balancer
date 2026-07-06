@@ -11,35 +11,12 @@ Connection::Connection(int clientFd, int backendFd)
 {
 }
 
-void Connection::proxy()
-{
-    constexpr int BUFFER_SIZE = 4096;
-    char buffer[BUFFER_SIZE];
+int Connection::getBackendFd(){
+    return backendFd_;
+}
 
-    while (true)
-    {
-        // Client -> Backend
-        ssize_t bytesRead = recv(clientFd_, buffer, BUFFER_SIZE, 0);
-
-        if (bytesRead <= 0)
-        {
-            Logger::info("Client disconnected.");
-            break;
-        }
-
-        send(backendFd_, buffer, bytesRead, 0);
-
-        // Backend -> Client
-        ssize_t bytesReceived = recv(backendFd_, buffer, BUFFER_SIZE, 0);
-
-        if (bytesReceived <= 0)
-        {
-            Logger::info("Backend disconnected.");
-            break;
-        }
-
-        send(clientFd_, buffer, bytesReceived, 0);
-    }
+int Connection::getClientFd(){
+    return clientFd_;
 }
 
 void Connection::close()
