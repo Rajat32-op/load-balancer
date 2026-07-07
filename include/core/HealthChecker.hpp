@@ -11,7 +11,7 @@ public:
     void start();
     void stop();
 private:
-    std::vector<std::unique_ptr<Backend>>& backends_;
+    std::vector<Backend *> backends_;
 
     std::thread worker_;
 

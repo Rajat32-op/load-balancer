@@ -2,8 +2,12 @@
 #include <unistd.h>
 
 HealthChecker::HealthChecker(std::vector<std::unique_ptr<Backend>>& backends)
-    : backends_(backends), running_(false)
+    : running_(false)
 {
+    for(auto& backend : backends)
+    {
+        backends_.push_back(backend.get());
+    }
 }
 
 bool HealthChecker::checkBackend(Backend *backend)
@@ -25,7 +29,7 @@ void HealthChecker::start()
         {
             for (auto& backend : backends_)
             {
-                bool isHealthy = checkBackend(backend.get());
+                bool isHealthy = checkBackend(backend);
                 backend->setHealthy(isHealthy);
             }
             std::this_thread::sleep_for(std::chrono::seconds(5));
