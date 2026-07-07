@@ -9,13 +9,14 @@
 
 LoadBalancer::LoadBalancer(const Config& config)
     : config_(config),
-      server_(config.listenIp, config.listenPort)
+      server_(config.listenIp, config.listenPort),metricsServer_(metrics_)
 {
 }
 
 LoadBalancer::~LoadBalancer()
 {
     healthChecker_->stop();
+    metricsServer_.stop();
 }
 
 bool LoadBalancer::initialize()
@@ -49,8 +50,9 @@ bool LoadBalancer::initialize()
         return false;
     }
 
-    healthChecker_ = std::make_unique<HealthChecker>(backends_);
+    healthChecker_ = std::make_unique<HealthChecker>(backends_,metrics_);
     healthChecker_->start();
+    metricsServer_.start();
 
     return true;
 }
@@ -80,6 +82,9 @@ void LoadBalancer::acceptNewClient()
     connections_[clientFd] = connection;
     connections_[backendFd] = connection;
     connections_[clientFd]->setBackend(backend);
+
+    metrics_.incrementActiveConnections();
+    metrics_.incrementTotalConnections();
 
     // Register both client and backend FDs with the event loop.
     eventLoop_.addFD(clientFd, EPOLLIN);
@@ -125,6 +130,9 @@ void LoadBalancer::handleSocketEvent(int fd)
     {
         connection->updateActivity();
         send(toFd,buffer,n,0);
+        metrics_.addBytesIn(n);
+        metrics_.addBytesOut(n);
+        metrics_.incrementRequests();
     }
 }
 
@@ -145,6 +153,8 @@ void LoadBalancer::cleanupConnection(int fd)
 
         connections_.erase(clientFd);
         connections_.erase(backendFd);
+
+        metrics_.decrementActiveConnections();
     }
 }
 

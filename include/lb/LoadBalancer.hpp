@@ -7,6 +7,8 @@
 #include "lb/Backend.hpp"
 #include "lb/Scheduler.hpp"
 #include "core/HealthChecker.hpp"
+#include "metrics/Metrics.hpp"
+#include "metrics/MetricsServer.hpp"
 
 class LoadBalancer
 {
@@ -30,7 +32,12 @@ private:
     std::unique_ptr<Scheduler> scheduler_;
     std::unique_ptr<HealthChecker> healthChecker_;
 
+    Metrics metrics_;
+    MetricsServer metricsServer_;
+
     const std::chrono::seconds IDLE_TIMEOUT = std::chrono::seconds(60);
+
+
 
     void acceptNewClient();
 
