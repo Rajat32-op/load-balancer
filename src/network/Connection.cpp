@@ -8,7 +8,8 @@
 Connection::Connection(int clientFd, int backendFd)
     : clientFd_(clientFd),
       backendFd_(backendFd),
-      backend_(nullptr)
+      backend_(nullptr),
+      lastActivity_(std::chrono::steady_clock::now())
 {
 }
 
@@ -41,4 +42,12 @@ Backend *Connection::getBackend(){
 
 void Connection::setBackend(Backend *backend){
     backend_ = backend;
+}
+
+std::chrono::steady_clock::time_point Connection::lastActivity() const {
+    return lastActivity_;
+}
+
+void Connection::updateActivity() {
+    lastActivity_ = std::chrono::steady_clock::now();
 }

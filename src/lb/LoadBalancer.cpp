@@ -101,12 +101,21 @@ void LoadBalancer::handleSocketEvent(int fd)
     char buffer[4096];
     ssize_t n = recv(fromFd,buffer,sizeof(buffer),0);
 
-    if(n <= 0)
+
+    if(n == 0)
     {
         cleanupConnection(fd);
     }
+    else if(n<0){
+        if(errno != EAGAIN && errno != EWOULDBLOCK)
+        {
+            Logger::error("Error reading from FD: " + std::to_string(fd));
+            cleanupConnection(fd);
+        }
+    }
     else
     {
+        connection->updateActivity();
         send(toFd,buffer,n,0);
     }
 }
@@ -133,9 +142,11 @@ void LoadBalancer::cleanupConnection(int fd)
 
 void LoadBalancer::run(){
 
+    auto lastCleanup = std::chrono::steady_clock::now();
+
     while (true)
     {
-        eventLoop_.wait(events_);
+        eventLoop_.wait(events_,5000);
 
         for (auto& event : events_)
         {
@@ -145,5 +156,29 @@ void LoadBalancer::run(){
                 handleSocketEvent(event.data.fd);
             }
         }
+        auto now = std::chrono::steady_clock::now();
+
+        if (now - lastCleanup >= std::chrono::seconds(1))
+        {
+            checkIdleConnections();
+            lastCleanup = now;
+        }
+    }
+}
+
+void LoadBalancer::checkIdleConnections() {
+    auto now = std::chrono::steady_clock::now();
+    std::vector<int> fdsToCleanup;
+
+    for (const auto& pair : connections_) {
+        auto connection = pair.second;
+        if (now - connection->lastActivity() > IDLE_TIMEOUT) {
+            fdsToCleanup.push_back(connection->getClientFd());
+            fdsToCleanup.push_back(connection->getBackendFd());
+        }
+    }
+
+    for (int fd : fdsToCleanup) {
+        cleanupConnection(fd);
     }
 }

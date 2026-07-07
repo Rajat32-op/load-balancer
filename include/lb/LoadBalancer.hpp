@@ -29,10 +29,14 @@ private:
     std::vector<Backend> backends_;
     std::unique_ptr<Scheduler> scheduler_;
 
+    const std::chrono::seconds IDLE_TIMEOUT = std::chrono::seconds(60);
+
     void acceptNewClient();
 
     void handleSocketEvent(int fd);
 
     void cleanupConnection(int fd);
+
+    void checkIdleConnections();
 
 };
