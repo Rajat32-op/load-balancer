@@ -6,11 +6,11 @@
 class RoundRobinScheduler : public Scheduler
 {
 public:
-    explicit RoundRobinScheduler(std::vector<Backend>& backends);
+    explicit RoundRobinScheduler(std::vector<std::unique_ptr<Backend>>& backends);
 
     Backend* selectBackend() override;
 
 private:
-    std::vector<Backend>& backends_;
+    std::vector<Backend *> backends_;
     size_t currentIndex_;
 };

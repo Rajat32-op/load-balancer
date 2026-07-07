@@ -10,10 +10,10 @@
 Backend::Backend(const std::string& host, int port,int weight)
     : host_(host),
       port_(port),
-      weight_(weight),
-      healthy_(true),
-      activeConnections_(0)
+      weight_(weight)
 {
+    healthy_.store(true);
+    activeConnections_.store(0);
 }
 
 int Backend::connectBackend()
@@ -58,12 +58,12 @@ int Backend::connectBackend()
 
 bool Backend::healthy() const
 {
-    return healthy_;
+    return healthy_.load();
 }
 
 void Backend::setHealthy(bool healthy)
 {
-    healthy_ = healthy;
+    healthy_.store(healthy);
 }
 
 int Backend::weight() const
@@ -73,18 +73,18 @@ int Backend::weight() const
 
 void Backend::incrementConnections()
 {
-    ++activeConnections_;
+    activeConnections_.fetch_add(1);
 }
 
 void Backend::decrementConnections()
 {
     if (activeConnections_ > 0)
     {
-        --activeConnections_;
+        activeConnections_.fetch_sub(1);
     }
 }
 
 int Backend::activeConnections() const
 {
-    return activeConnections_;
+    return activeConnections_.load();
 }

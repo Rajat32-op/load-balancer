@@ -6,13 +6,13 @@
 #include "core/EventLoop.hpp"
 #include "lb/Backend.hpp"
 #include "lb/Scheduler.hpp"
-#include<memory>
-
+#include "core/HealthChecker.hpp"
 
 class LoadBalancer
 {
 public:
     explicit LoadBalancer(const Config& config);
+    ~LoadBalancer();
 
     bool initialize();
     void run();
@@ -26,8 +26,9 @@ private:
 
     std::unordered_map<int, std::shared_ptr<Connection>> connections_;
 
-    std::vector<Backend> backends_;
+    std::vector<std::unique_ptr<Backend>> backends_;
     std::unique_ptr<Scheduler> scheduler_;
+    std::unique_ptr<HealthChecker> healthChecker_;
 
     const std::chrono::seconds IDLE_TIMEOUT = std::chrono::seconds(60);
 

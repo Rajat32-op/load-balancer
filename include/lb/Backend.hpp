@@ -1,7 +1,8 @@
 #pragma once
 
 #include <string>
-
+#include <atomic>
+#include <memory>
 class Backend
 {
 public:
@@ -25,6 +26,6 @@ private:
     std::string host_;
     int port_;
     int weight_;
-    bool healthy_;
-    int activeConnections_;
+    std::atomic<bool> healthy_;
+    std::atomic<int> activeConnections_;
 };

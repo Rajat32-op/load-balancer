@@ -8,7 +8,7 @@
 class WeightedRoundRobinScheduler : public Scheduler
 {
 public:
-    explicit WeightedRoundRobinScheduler(std::vector<Backend>& backends);
+    explicit WeightedRoundRobinScheduler(std::vector<std::unique_ptr<Backend>>& backends);
 
     Backend* selectBackend() override;
 

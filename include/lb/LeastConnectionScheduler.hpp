@@ -5,9 +5,9 @@
 class LeastConnectionScheduler : public Scheduler
 {
 public:
-    explicit LeastConnectionScheduler(std::vector<Backend>& backends);
+    explicit LeastConnectionScheduler(std::vector<std::unique_ptr<Backend>>& backends);
 
     Backend* selectBackend() override;
 private:
-    std::vector<Backend>& backends_;
+    std::vector<Backend *> backends_;
 };

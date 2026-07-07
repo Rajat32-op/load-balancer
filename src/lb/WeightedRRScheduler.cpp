@@ -1,14 +1,14 @@
 #include "lb/WeightedRRScheduler.hpp"
 
 WeightedRoundRobinScheduler::WeightedRoundRobinScheduler(
-    std::vector<Backend>& backends)
+    std::vector<std::unique_ptr<Backend>>& backends)
     : currentIndex_(0)
 {
     for (auto& backend : backends)
     {
-        for (int i = 0; i < backend.weight(); i++)
+        for (int i = 0; i < backend->weight(); i++)
         {
-            weightedBackends_.push_back(&backend);
+            weightedBackends_.push_back(backend.get());
         }
     }
 }

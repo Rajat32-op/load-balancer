@@ -13,6 +13,11 @@ LoadBalancer::LoadBalancer(const Config& config)
 {
 }
 
+LoadBalancer::~LoadBalancer()
+{
+    healthChecker_->stop();
+}
+
 bool LoadBalancer::initialize()
 {
     if (!server_.start())
@@ -29,7 +34,7 @@ bool LoadBalancer::initialize()
 
     for(auto& backendConfig : config_.backends)
     {
-        backends_.emplace_back(backendConfig.host, backendConfig.port,backendConfig.weight);
+        backends_.emplace_back(std::make_unique<Backend>(backendConfig.host, backendConfig.port, backendConfig.weight));
     }
 
     if(config_.algorithm == "round_robin")
@@ -43,6 +48,9 @@ bool LoadBalancer::initialize()
         Logger::error("Unknown scheduling algorithm: " + config_.algorithm);
         return false;
     }
+
+    healthChecker_ = std::make_unique<HealthChecker>(backends_);
+    healthChecker_->start();
 
     return true;
 }
@@ -146,8 +154,11 @@ void LoadBalancer::run(){
 
     while (true)
     {
-        eventLoop_.wait(events_,5000);
-
+        int numEvents = eventLoop_.wait(events_,1000);
+        if(numEvents < 0)
+        {
+            continue;
+        }
         for (auto& event : events_)
         {
             if (event.data.fd == server_.getListenFd())

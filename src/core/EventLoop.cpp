@@ -53,7 +53,7 @@ int EventLoop::wait(
                 events.size(),
                 timeout);
 
-    if (n > 0)
+    if (n >= 0)
         events.resize(n);
 
     return n;
