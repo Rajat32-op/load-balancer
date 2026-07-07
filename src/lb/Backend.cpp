@@ -7,6 +7,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <netdb.h>
+#include <cstring>
+
 Backend::Backend(const std::string& host, int port,int weight)
     : host_(host),
       port_(port),
@@ -18,42 +21,47 @@ Backend::Backend(const std::string& host, int port,int weight)
 
 int Backend::connectBackend()
 {
-    int socketFd_ = socket(AF_INET, SOCK_STREAM, 0);
+    addrinfo hints{};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
 
-    if (socketFd_ < 0)
+    addrinfo* result = nullptr;
+
+    int ret = getaddrinfo(
+        host_.c_str(),
+        std::to_string(port_).c_str(),
+        &hints,
+        &result);
+
+    if (ret != 0)
     {
-        Logger::error("Failed to create backend socket.");
+        Logger::error(gai_strerror(ret));
         return -1;
     }
 
-    sockaddr_in serverAddr{};
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(port_);
+    int fd = socket(
+        result->ai_family,
+        result->ai_socktype,
+        result->ai_protocol);
 
-    if (inet_pton(AF_INET, host_.c_str(), &serverAddr.sin_addr) <= 0)
+    if (fd < 0)
     {
-        Logger::error("Invalid backend IP.");
-        close(socketFd_);
-        socketFd_ = -1;
+        freeaddrinfo(result);
         return -1;
     }
 
-    if (::connect(socketFd_,
-                  reinterpret_cast<sockaddr*>(&serverAddr),
-                  sizeof(serverAddr)) < 0)
+    if (::connect(fd,
+                  result->ai_addr,
+                  result->ai_addrlen) < 0)
     {
-        Logger::error("Failed to connect to backend.");
-        close(socketFd_);
-        socketFd_ = -1;
+        close(fd);
+        freeaddrinfo(result);
         return -1;
     }
 
-    Logger::info("Connected to backend " +
-                 host_ +
-                 ":" +
-                 std::to_string(port_));
+    freeaddrinfo(result);
 
-    return socketFd_;
+    return fd;
 }
 
 bool Backend::healthy() const

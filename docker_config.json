@@ -1,0 +1,24 @@
+{
+    "listen_ip": "0.0.0.0",
+    "listen_port": 8080,
+
+    "algorithm": "least_connection",
+
+    "backends": [
+        {
+            "host": "backend1",
+            "port": 9001,
+            "weight": 1
+        },
+        {
+            "host": "backend2",
+            "port": 9002,
+            "weight": 2
+        },
+        {
+            "host": "backend3",
+            "port": 9003,
+            "weight": 3
+        }
+    ]
+}
