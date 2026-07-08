@@ -51,3 +51,11 @@ std::chrono::steady_clock::time_point Connection::lastActivity() const {
 void Connection::updateActivity() {
     lastActivity_ = std::chrono::steady_clock::now();
 }
+
+std::vector<char>& Connection::clientToBackendBuffer() {
+    return clientToBackendBuffer_;
+}
+
+std::vector<char>& Connection::backendToClientBuffer() {
+    return backendToClientBuffer_;
+}

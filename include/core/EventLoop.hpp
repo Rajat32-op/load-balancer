@@ -15,6 +15,8 @@ public:
 
     bool removeFD(int fd);
 
+    void modifyFD(int fd, uint32_t events);
+
     int wait(std::vector<epoll_event>& events,
              int timeout = -1);
 

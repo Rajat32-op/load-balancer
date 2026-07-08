@@ -41,6 +41,23 @@ bool EventLoop::removeFD(int fd)
             nullptr) != -1;
 }
 
+void EventLoop::modifyFD(int fd, uint32_t events)
+{
+    epoll_event ev{};
+    ev.events = events;
+    ev.data.fd = fd;
+
+    if (epoll_ctl(epollFd_,
+                  EPOLL_CTL_MOD,
+                  fd,
+                  &ev) < 0)
+    {
+        Logger::error(
+            "Failed to modify FD: " +
+            std::to_string(fd));
+    }
+}
+
 int EventLoop::wait(
         std::vector<epoll_event>& events,
         int timeout)

@@ -9,6 +9,8 @@
 #include "core/HealthChecker.hpp"
 #include "metrics/Metrics.hpp"
 #include "metrics/MetricsServer.hpp"
+#include <netinet/in.h>
+#include <unistd.h>
 
 class LoadBalancer
 {
@@ -41,10 +43,13 @@ private:
 
     void acceptNewClient();
 
-    void handleSocketEvent(int fd);
+    void handleSocketEvent(const epoll_event& event);
 
     void cleanupConnection(int fd);
 
     void checkIdleConnections();
+
+    void handleRead(int fd);
+    void handleWrite(int fd);
 
 };

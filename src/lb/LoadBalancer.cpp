@@ -4,8 +4,6 @@
 #include "lb/RoundRobinScheduler.hpp"
 #include "lb/LeastConnectionScheduler.hpp"
 #include "lb/WeightedRRScheduler.hpp"
-#include <unistd.h>
-#include <netinet/in.h>
 
 LoadBalancer::LoadBalancer(const Config& config)
     : config_(config),
@@ -91,49 +89,148 @@ void LoadBalancer::acceptNewClient()
     eventLoop_.addFD(backendFd, EPOLLIN);
 }
 
-void LoadBalancer::handleSocketEvent(int fd)
+void LoadBalancer::handleRead(int fd)
 {
     auto it = connections_.find(fd);
+
     if (it == connections_.end())
-    {
-        Logger::warn("Received event for unknown FD: " + std::to_string(fd));
         return;
-    }
 
-    auto connection = it->second;
-    int fromFd,toFd;
-    if(fd==connection->getClientFd()){
-        fromFd=connection->getClientFd();
-        toFd=connection->getBackendFd();
-    }
-    else{
-        fromFd=connection->getBackendFd();
-        toFd=connection->getClientFd();
-    }
+    auto conn = it->second;
 
-    char buffer[4096];
-    ssize_t n = recv(fromFd,buffer,sizeof(buffer),0);
+    int fromFd;
+    int toFd;
 
+    std::vector<char>* buffer;
 
-    if(n == 0)
+    if (fd == conn->getClientFd())
     {
-        cleanupConnection(fd);
-    }
-    else if(n<0){
-        if(errno != EAGAIN && errno != EWOULDBLOCK)
-        {
-            Logger::error("Error reading from FD: " + std::to_string(fd));
-            cleanupConnection(fd);
-        }
+        fromFd = conn->getClientFd();
+        toFd   = conn->getBackendFd();
+
+        buffer = &conn->clientToBackendBuffer();
     }
     else
     {
-        connection->updateActivity();
-        send(toFd,buffer,n,0);
-        metrics_.addBytesIn(n);
-        metrics_.addBytesOut(n);
-        metrics_.incrementRequests();
+        fromFd = conn->getBackendFd();
+        toFd   = conn->getClientFd();
+
+        buffer = &conn->backendToClientBuffer();
     }
+
+    char temp[4096];
+
+    ssize_t n =
+        recv(fromFd,
+             temp,
+             sizeof(temp),
+             0);
+
+    if (n == 0)
+    {
+        cleanupConnection(fd);
+        return;
+    }
+
+    if (n < 0)
+    {
+        if(errno != EAGAIN &&
+           errno != EWOULDBLOCK)
+        {
+            cleanupConnection(fd);
+        }
+
+        return;
+    }
+
+    conn->updateActivity();
+
+    metrics_.addBytesIn(n);
+    metrics_.incrementRequests();
+
+    buffer->insert(
+        buffer->end(),
+        temp,
+        temp+n);
+
+    handleWrite(toFd);
+}
+
+void LoadBalancer::handleWrite(int fd)
+{
+    auto it = connections_.find(fd);
+
+    if(it == connections_.end())
+        return;
+
+    auto conn = it->second;
+
+    std::vector<char>* buffer;
+
+    if(fd == conn->getBackendFd())
+    {
+        buffer = &conn->clientToBackendBuffer();
+    }
+    else
+    {
+        buffer = &conn->backendToClientBuffer();
+    }
+
+    if(buffer->empty())
+    {
+        eventLoop_.modifyFD(fd,
+                            EPOLLIN);
+
+        return;
+    }
+
+    ssize_t sent =
+        send(fd,
+             buffer->data(),
+             buffer->size(),
+             0);
+
+    if(sent > 0)
+    {
+        metrics_.addBytesOut(sent);
+
+        buffer->erase(
+            buffer->begin(),
+            buffer->begin()+sent);
+    }
+    else if(sent<0){
+         if (errno == EAGAIN || errno == EWOULDBLOCK){
+            eventLoop_.modifyFD(fd, EPOLLIN | EPOLLOUT);
+            return;
+        }
+
+        cleanupConnection(fd);
+        return;
+    }
+
+    if(buffer->empty())
+    {
+        eventLoop_.modifyFD(fd,
+                            EPOLLIN);
+    }
+    else
+    {
+        eventLoop_.modifyFD(
+            fd,
+            EPOLLIN | EPOLLOUT);
+    }
+}
+
+
+void LoadBalancer::handleSocketEvent(const epoll_event& event)
+{
+    int fd = event.data.fd;
+
+    if (event.events & EPOLLIN)
+        handleRead(fd);
+
+    if (event.events & EPOLLOUT)
+        handleWrite(fd);
 }
 
 void LoadBalancer::cleanupConnection(int fd)
@@ -174,7 +271,7 @@ void LoadBalancer::run(){
             if (event.data.fd == server_.getListenFd())
                 acceptNewClient();
             else{
-                handleSocketEvent(event.data.fd);
+                handleSocketEvent(event);
             }
         }
         auto now = std::chrono::steady_clock::now();
